@@ -1,30 +1,53 @@
-# AI Multimedia Suite
+# 🎬 AI Multimedia Production Suite
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+A modular, multi-agent orchestration system for intelligent video, audio, and metadata processing — powered by open-source LLMs and SQL Server.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/successsohams-projects/v0-ai-multimedia-suite)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/gRVeJe361dZ)
+---
 
-## Overview
+## 🚀 Features
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+- 🎞️ Video enhancement (upscaling, color correction, scene detection)
+- 🎧 Audio optimization (noise reduction, speech-to-text, music generation)
+- 🧠 Metadata extraction using open-source LLMs (tags, sentiment, OCR)
+- 🎬 Storyboard generation (keyframes, transitions, timeline)
+- 🤖 Agent-to-agent (A2A) messaging protocol
+- 🗃️ SQL Server backend with schema + seed scripts
+- 🧪 Pytest-based test suite
+- 🧱 Modular architecture for easy extension
 
-## Deployment
+---
 
-Your project is live at:
 
-**[https://vercel.com/successsohams-projects/v0-ai-multimedia-suite](https://vercel.com/successsohams-projects/v0-ai-multimedia-suite)**
+---
 
-## Build your app
+## ⚙️ Setup
 
-Continue building your app on:
+### 1. Clone the repo
+```bash
+git clone https://github.com/SuccessSoham/AI-Multimedia-Suite.git
+cd AI-Multimedia-Suite
 
-**[https://v0.dev/chat/projects/gRVeJe361dZ](https://v0.dev/chat/projects/gRVeJe361dZ)**
+2. Install dependencies
+pip install -r requirements.txt
 
-## How It Works
+3. Configure environment
+Create a .env file:
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+SQL_SERVER=localhost\SQLEXPRESS
+SQL_DATABASE=ai_multimedia_suite
+SQL_DRIVER=ODBC Driver 17 for SQL Server
+LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
+
+4. Initialize the database
+
+python scripts/initialize_db.py
+python scripts/seed_demo.py
+
+🧠 LLM Integration
+The metadata_agent.py uses a HuggingFace-compatible model (e.g. Mistral, Phi-2) to extract intelligent metadata from files. You can swap models via .env.
+
+🧪 Run Tests
+pytest test/
+
+📜 License
+MIT License © 2025 Soham
