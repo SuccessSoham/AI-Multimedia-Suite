@@ -1,140 +1,123 @@
--- AI Multimedia Production Suite Database Schema (SQL Server Compatible)
-
--- Create the database
-CREATE DATABASE ai_multimedia_suite;
-GO
-
-USE ai_multimedia_suite;
-GO
+-- AI Multimedia Production Suite Schema (PostgreSQL / Supabase Compatible)
 
 -- Agents table
-CREATE TABLE agents (
+CREATE TABLE public.agents (
     id VARCHAR(50) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     type VARCHAR(50) CHECK (type IN ('video', 'audio', 'storyboard', 'metadata', 'orchestrator')) NOT NULL,
     status VARCHAR(50) CHECK (status IN ('idle', 'processing', 'completed', 'error', 'offline')) DEFAULT 'idle',
-    capabilities NVARCHAR(MAX),
-    last_heartbeat DATETIME DEFAULT GETDATE(),
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    capabilities JSONB,
+    last_heartbeat TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-GO
 
 -- Processing jobs table
-CREATE TABLE processing_jobs (
+CREATE TABLE public.processing_jobs (
     id VARCHAR(50) PRIMARY KEY,
     file_name VARCHAR(255) NOT NULL,
     file_path VARCHAR(500),
     file_type VARCHAR(100),
     file_size BIGINT,
     status VARCHAR(50) CHECK (status IN ('queued', 'processing', 'completed', 'error', 'cancelled')) DEFAULT 'queued',
-    progress DECIMAL(5,2) DEFAULT 0.00,
+    progress NUMERIC(5,2) DEFAULT 0.00,
     priority VARCHAR(50) CHECK (priority IN ('low', 'normal', 'high', 'critical')) DEFAULT 'normal',
-    created_at DATETIME DEFAULT GETDATE(),
-    started_at DATETIME NULL,
-    completed_at DATETIME NULL,
-    error_message NVARCHAR(MAX) NULL
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    error_message TEXT
 );
-GO
 
 -- Agent job assignments
-CREATE TABLE agent_job_assignments (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE public.agent_job_assignments (
+    id SERIAL PRIMARY KEY,
     job_id VARCHAR(50) NOT NULL,
     agent_id VARCHAR(50) NOT NULL,
     status VARCHAR(50) CHECK (status IN ('pending', 'processing', 'completed', 'error', 'skipped')) DEFAULT 'pending',
-    started_at DATETIME NULL,
-    completed_at DATETIME NULL,
-    results NVARCHAR(MAX),
-    error_message NVARCHAR(MAX),
-    CONSTRAINT FK_job FOREIGN KEY (job_id) REFERENCES processing_jobs(id) ON DELETE CASCADE,
-    CONSTRAINT FK_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    results JSONB,
+    error_message TEXT,
+    CONSTRAINT fk_job FOREIGN KEY (job_id) REFERENCES public.processing_jobs(id) ON DELETE CASCADE,
+    CONSTRAINT fk_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE,
     CONSTRAINT unique_job_agent UNIQUE (job_id, agent_id)
 );
-GO
 
 -- A2A communication messages
-CREATE TABLE a2a_messages (
+CREATE TABLE public.a2a_messages (
     id VARCHAR(50) PRIMARY KEY,
     from_agent VARCHAR(50) NOT NULL,
     to_agent VARCHAR(50) NOT NULL,
     message_type VARCHAR(50) CHECK (message_type IN ('request', 'response', 'notification', 'ack', 'error')) NOT NULL,
     protocol_version VARCHAR(10) DEFAULT '2.0',
     priority VARCHAR(50) CHECK (priority IN ('low', 'normal', 'high', 'critical')) DEFAULT 'normal',
-    requires_ack BIT DEFAULT 0,
-    correlation_id VARCHAR(50) NULL,
-    payload NVARCHAR(MAX),
-    timestamp DATETIME DEFAULT GETDATE(),
-    acknowledged_at DATETIME NULL
+    requires_ack BOOLEAN DEFAULT FALSE,
+    correlation_id VARCHAR(50),
+    payload JSONB,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    acknowledged_at TIMESTAMPTZ
 );
-GO
 
 -- Indexes for A2A
-CREATE INDEX idx_from_agent ON a2a_messages(from_agent);
-CREATE INDEX idx_to_agent ON a2a_messages(to_agent);
-CREATE INDEX idx_timestamp ON a2a_messages(timestamp);
-CREATE INDEX idx_correlation ON a2a_messages(correlation_id);
-GO
+CREATE INDEX idx_from_agent ON public.a2a_messages(from_agent);
+CREATE INDEX idx_to_agent ON public.a2a_messages(to_agent);
+CREATE INDEX idx_timestamp ON public.a2a_messages(timestamp);
+CREATE INDEX idx_correlation ON public.a2a_messages(correlation_id);
 
 -- Processing results table
-CREATE TABLE processing_results (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE public.processing_results (
+    id SERIAL PRIMARY KEY,
     job_id VARCHAR(50) NOT NULL,
     agent_id VARCHAR(50) NOT NULL,
     result_type VARCHAR(100) NOT NULL,
-    result_data NVARCHAR(MAX),
-    file_outputs NVARCHAR(MAX),
-    metrics NVARCHAR(MAX),
-    created_at DATETIME DEFAULT GETDATE(),
-    FOREIGN KEY (job_id) REFERENCES processing_jobs(id) ON DELETE CASCADE,
-    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+    result_data JSONB,
+    file_outputs JSONB,
+    metrics JSONB,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (job_id) REFERENCES public.processing_jobs(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE
 );
-GO
 
 -- System configuration table
-CREATE TABLE system_config (
+CREATE TABLE public.system_config (
     config_key VARCHAR(100) PRIMARY KEY,
-    config_value NVARCHAR(MAX),
-    description NVARCHAR(MAX),
-    updated_at DATETIME DEFAULT GETDATE()
+    config_value JSONB,
+    description TEXT,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-GO
 
--- Insert default agent definitions
-INSERT INTO agents (id, name, type, capabilities) VALUES
+-- Default agent inserts
+INSERT INTO public.agents (id, name, type, capabilities) VALUES
 ('video-agent', 'Video Enhancement Agent', 'video', 
- N'["noise_reduction", "upscaling", "color_correction", "scene_detection", "frame_interpolation"]'),
+ '["noise_reduction", "upscaling", "color_correction", "scene_detection", "frame_interpolation"]'),
 ('audio-agent', 'Audio Optimization Agent', 'audio', 
- N'["noise_reduction", "enhancement", "music_generation", "speech_to_text", "audio_separation"]'),
+ '["noise_reduction", "enhancement", "music_generation", "speech_to_text", "audio_separation"]'),
 ('storyboard-agent', 'Storyboard Generation Agent', 'storyboard', 
- N'["scene_analysis", "key_frame_extraction", "visual_composition", "timeline_generation", "shot_classification"]'),
+ '["scene_analysis", "key_frame_extraction", "visual_composition", "timeline_generation", "shot_classification"]'),
 ('metadata-agent', 'Metadata Extraction Agent', 'metadata', 
- N'["ocr", "object_detection", "tag_generation", "content_analysis", "sentiment_analysis"]'),
+ '["ocr", "object_detection", "tag_generation", "content_analysis", "sentiment_analysis"]'),
 ('orchestrator', 'Orchestrator Agent', 'orchestrator', 
- N'["job_scheduling", "agent_coordination", "pipeline_management", "resource_allocation"]');
-GO
+ '["job_scheduling", "agent_coordination", "pipeline_management", "resource_allocation"]');
 
--- Insert default system configuration
-INSERT INTO system_config (config_key, config_value, description) VALUES
+-- Default system config
+INSERT INTO public.system_config (config_key, config_value, description) VALUES
 ('max_concurrent_jobs', '5', 'Maximum number of jobs that can be processed simultaneously'),
 ('default_processing_timeout', '3600', 'Default timeout for processing jobs in seconds'),
 ('a2a_protocol_version', '"2.0"', 'Current A2A protocol version'),
 ('supported_file_types', 
- N'["video/mp4", "video/avi", "video/mov", "audio/wav", "audio/mp3", "image/jpeg", "image/png"]', 
+ '["video/mp4", "video/avi", "video/mov", "audio/wav", "audio/mp3", "image/jpeg", "image/png"]',
  'Supported file types for processing'),
 ('agent_heartbeat_interval', '30', 'Agent heartbeat interval in seconds'),
 ('message_retention_days', '30', 'Number of days to retain A2A messages');
-GO
 
 -- Additional indexes
-CREATE INDEX idx_jobs_status ON processing_jobs(status);
-CREATE INDEX idx_jobs_created ON processing_jobs(created_at);
-CREATE INDEX idx_assignments_status ON agent_job_assignments(status);
-CREATE INDEX idx_results_job ON processing_results(job_id);
-GO
+CREATE INDEX idx_jobs_status ON public.processing_jobs(status);
+CREATE INDEX idx_jobs_created ON public.processing_jobs(created_at);
+CREATE INDEX idx_assignments_status ON public.agent_job_assignments(status);
+CREATE INDEX idx_results_job ON public.processing_results(job_id);
 
 -- Views
-CREATE VIEW agent_status_summary AS
+CREATE VIEW public.agent_status_summary AS
 SELECT 
     a.id,
     a.name,
@@ -142,12 +125,11 @@ SELECT
     a.status,
     COUNT(aja.id) AS active_jobs,
     a.last_heartbeat
-FROM agents a
-LEFT JOIN agent_job_assignments aja ON a.id = aja.agent_id AND aja.status = 'processing'
+FROM public.agents a
+LEFT JOIN public.agent_job_assignments aja ON a.id = aja.agent_id AND aja.status = 'processing'
 GROUP BY a.id, a.name, a.type, a.status, a.last_heartbeat;
-GO
 
-CREATE VIEW job_progress_summary AS
+CREATE VIEW public.job_progress_summary AS
 SELECT 
     pj.id,
     pj.file_name,
@@ -160,7 +142,6 @@ SELECT
     pj.created_at,
     pj.started_at,
     pj.completed_at
-FROM processing_jobs pj
-LEFT JOIN agent_job_assignments aja ON pj.id = aja.job_id
+FROM public.processing_jobs pj
+LEFT JOIN public.agent_job_assignments aja ON pj.id = aja.job_id
 GROUP BY pj.id, pj.file_name, pj.status, pj.progress, pj.created_at, pj.started_at, pj.completed_at;
-GO
