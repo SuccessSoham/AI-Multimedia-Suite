@@ -23,7 +23,7 @@ A modular, multi-agent orchestration system for intelligent video, audio, and me
 ## ⚙️ Setup
 
 ### 1. Clone the repo
-```bash
+\`\`\`bash
 git clone https://github.com/SuccessSoham/AI-Multimedia-Suite.git
 cd AI-Multimedia-Suite
 
