@@ -7,22 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Download, Eye, BarChart3 } from "lucide-react"
 import type { ProcessingJob } from "@/app/page"
 
-// Add these imports at the top
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { useState } from "react"
-
 interface ResultsViewerProps {
   jobs: ProcessingJob[]
 }
@@ -101,6 +85,61 @@ export function ResultsViewer({ jobs }: ResultsViewerProps) {
     }
   }
 
+  const handleDownload = (job: ProcessingJob, format = "json") => {
+    let content: string
+    let filename: string
+    let mimeType: string
+
+    switch (format) {
+      case "json":
+        content = JSON.stringify(
+          {
+            job: {
+              id: job.id,
+              fileName: job.fileName,
+              status: job.status,
+              progress: job.progress,
+            },
+            results: job.results,
+            metadata: {
+              downloadedAt: new Date().toISOString(),
+              format: "JSON",
+            },
+          },
+          null,
+          2,
+        )
+        filename = `${job.fileName.split(".")[0]}_results.json`
+        mimeType = "application/json"
+        break
+      case "csv":
+        let csv = "Agent,Metric,Value\n"
+        Object.entries(job.results).forEach(([agentId, results]) => {
+          Object.entries(results).forEach(([key, value]) => {
+            csv += `${getAgentName(agentId)},${key},${value}\n`
+          })
+        })
+        content = csv
+        filename = `${job.fileName.split(".")[0]}_results.csv`
+        mimeType = "text/csv"
+        break
+      default:
+        content = JSON.stringify(job.results, null, 2)
+        filename = `${job.fileName.split(".")[0]}_results.json`
+        mimeType = "application/json"
+    }
+
+    const blob = new Blob([content], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -126,7 +165,14 @@ export function ResultsViewer({ jobs }: ResultsViewerProps) {
                           <Eye className="h-4 w-4 mr-2" />
                           Preview
                         </Button>
-                        <DownloadDialog job={job} />
+                        <Button variant="outline" size="sm" onClick={() => handleDownload(job, "json")}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download JSON
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDownload(job, "csv")}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download CSV
+                        </Button>
                       </div>
                     </div>
                     <CardDescription>
@@ -201,299 +247,5 @@ export function ResultsViewer({ jobs }: ResultsViewerProps) {
         </CardContent>
       </Card>
     </div>
-  )
-}
-
-// Add the DownloadDialog component at the end of the file:
-function DownloadDialog({ job }: { job: ProcessingJob }) {
-  const [selectedFormat, setSelectedFormat] = useState<string>("json")
-  const [selectedAgents, setSelectedAgents] = useState<string[]>(Object.keys(job.results))
-  const [includeMetadata, setIncludeMetadata] = useState(true)
-  const [isDownloading, setIsDownloading] = useState(false)
-
-  const downloadFormats = [
-    { value: "json", label: "JSON", description: "Structured data format" },
-    { value: "csv", label: "CSV", description: "Comma-separated values" },
-    { value: "xml", label: "XML", description: "Extensible markup language" },
-    { value: "pdf", label: "PDF Report", description: "Formatted report document" },
-    { value: "zip", label: "ZIP Archive", description: "All results in compressed archive" },
-  ]
-
-  const handleDownload = async () => {
-    setIsDownloading(true)
-
-    try {
-      let downloadData: any
-      let filename: string
-      let mimeType: string
-
-      switch (selectedFormat) {
-        case "json":
-          downloadData = generateJSONDownload(job, selectedAgents, includeMetadata)
-          filename = `${job.fileName.split(".")[0]}_results.json`
-          mimeType = "application/json"
-          break
-        case "csv":
-          downloadData = generateCSVDownload(job, selectedAgents, includeMetadata)
-          filename = `${job.fileName.split(".")[0]}_results.csv`
-          mimeType = "text/csv"
-          break
-        case "xml":
-          downloadData = generateXMLDownload(job, selectedAgents, includeMetadata)
-          filename = `${job.fileName.split(".")[0]}_results.xml`
-          mimeType = "application/xml"
-          break
-        case "pdf":
-          downloadData = await generatePDFDownload(job, selectedAgents, includeMetadata)
-          filename = `${job.fileName.split(".")[0]}_report.pdf`
-          mimeType = "application/pdf"
-          break
-        case "zip":
-          downloadData = await generateZIPDownload(job, selectedAgents, includeMetadata)
-          filename = `${job.fileName.split(".")[0]}_complete.zip`
-          mimeType = "application/zip"
-          break
-        default:
-          throw new Error("Unsupported format")
-      }
-
-      // Create and trigger download
-      const blob = new Blob([downloadData], { type: mimeType })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error("Download failed:", error)
-      alert("Download failed. Please try again.")
-    } finally {
-      setIsDownloading(false)
-    }
-  }
-
-  const generateJSONDownload = (job: ProcessingJob, agents: string[], metadata: boolean) => {
-    const results: any = {
-      job: {
-        id: job.id,
-        fileName: job.fileName,
-        status: job.status,
-        progress: job.progress,
-      },
-      results: {},
-    }
-
-    if (metadata) {
-      results.metadata = {
-        downloadedAt: new Date().toISOString(),
-        selectedAgents: agents,
-        totalAgents: Object.keys(job.results).length,
-      }
-    }
-
-    agents.forEach((agentId) => {
-      if (job.results[agentId]) {
-        results.results[agentId] = job.results[agentId]
-      }
-    })
-
-    return JSON.stringify(results, null, 2)
-  }
-
-  const generateCSVDownload = (job: ProcessingJob, agents: string[], metadata: boolean) => {
-    let csv = "Agent,Metric,Value\n"
-
-    if (metadata) {
-      csv += `Metadata,Job ID,${job.id}\n`
-      csv += `Metadata,File Name,${job.fileName}\n`
-      csv += `Metadata,Status,${job.status}\n`
-      csv += `Metadata,Progress,${job.progress}%\n`
-      csv += `Metadata,Downloaded At,${new Date().toISOString()}\n`
-    }
-
-    agents.forEach((agentId) => {
-      if (job.results[agentId]) {
-        const results = job.results[agentId]
-        Object.entries(results).forEach(([key, value]) => {
-          csv += `${getAgentName(agentId)},${key},${value}\n`
-        })
-      }
-    })
-
-    return csv
-  }
-
-  const generateXMLDownload = (job: ProcessingJob, agents: string[], metadata: boolean) => {
-    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<ProcessingResults>\n'
-
-    if (metadata) {
-      xml += "  <Metadata>\n"
-      xml += `    <JobId>${job.id}</JobId>\n`
-      xml += `    <FileName>${job.fileName}</FileName>\n`
-      xml += `    <Status>${job.status}</Status>\n`
-      xml += `    <Progress>${job.progress}</Progress>\n`
-      xml += `    <DownloadedAt>${new Date().toISOString()}</DownloadedAt>\n`
-      xml += "  </Metadata>\n"
-    }
-
-    xml += "  <Results>\n"
-    agents.forEach((agentId) => {
-      if (job.results[agentId]) {
-        xml += `    <Agent id="${agentId}" name="${getAgentName(agentId)}">\n`
-        const results = job.results[agentId]
-        Object.entries(results).forEach(([key, value]) => {
-          xml += `      <${key}>${value}</${key}>\n`
-        })
-        xml += "    </Agent>\n"
-      }
-    })
-    xml += "  </Results>\n</ProcessingResults>"
-
-    return xml
-  }
-
-  const generatePDFDownload = async (job: ProcessingJob, agents: string[], metadata: boolean) => {
-    // For a real implementation, you'd use a library like jsPDF
-    // This is a mock implementation that creates a text-based "PDF"
-    let content = `AI MULTIMEDIA PRODUCTION SUITE - PROCESSING REPORT\n\n`
-
-    if (metadata) {
-      content += `Job Information:\n`
-      content += `- Job ID: ${job.id}\n`
-      content += `- File Name: ${job.fileName}\n`
-      content += `- Status: ${job.status}\n`
-      content += `- Progress: ${job.progress}%\n`
-      content += `- Generated: ${new Date().toLocaleString()}\n\n`
-    }
-
-    content += `Processing Results:\n\n`
-    agents.forEach((agentId) => {
-      if (job.results[agentId]) {
-        content += `${getAgentName(agentId)}:\n`
-        const results = job.results[agentId]
-        Object.entries(results).forEach(([key, value]) => {
-          content += `  • ${key}: ${value}\n`
-        })
-        content += "\n"
-      }
-    })
-
-    return content
-  }
-
-  const generateZIPDownload = async (job: ProcessingJob, agents: string[], metadata: boolean) => {
-    // For a real implementation, you'd use a library like JSZip
-    // This creates a mock ZIP content
-    let zipContent = "ZIP Archive Contents:\n\n"
-
-    zipContent += "Files included:\n"
-    zipContent += "- results.json\n"
-    zipContent += "- results.csv\n"
-    zipContent += "- results.xml\n"
-    zipContent += "- report.pdf\n\n"
-
-    zipContent += "JSON Content:\n"
-    zipContent += generateJSONDownload(job, agents, metadata)
-
-    return zipContent
-  }
-
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Download className="h-4 w-4 mr-2" />
-          Download
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent className="max-w-2xl">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Download Processing Results</AlertDialogTitle>
-          <AlertDialogDescription>
-            Choose your preferred format and options for downloading the results of {job.fileName}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <div className="space-y-6 py-4">
-          {/* Format Selection */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Download Format</label>
-            <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {downloadFormats.map((format) => (
-                  <SelectItem key={format.value} value={format.value}>
-                    <div>
-                      <div className="font-medium">{format.label}</div>
-                      <div className="text-xs text-muted-foreground">{format.description}</div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Agent Selection */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Include Results From</label>
-            <div className="grid grid-cols-2 gap-2">
-              {Object.keys(job.results).map((agentId) => (
-                <div key={agentId} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={agentId}
-                    checked={selectedAgents.includes(agentId)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedAgents([...selectedAgents, agentId])
-                      } else {
-                        setSelectedAgents(selectedAgents.filter((id) => id !== agentId))
-                      }
-                    }}
-                  />
-                  <label htmlFor={agentId} className="text-sm">
-                    {getAgentName(agentId)}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Options */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Options</label>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="metadata" checked={includeMetadata} onCheckedChange={setIncludeMetadata} />
-              <label htmlFor="metadata" className="text-sm">
-                Include job metadata and timestamps
-              </label>
-            </div>
-          </div>
-
-          {/* Preview */}
-          <div className="bg-muted p-3 rounded-lg">
-            <div className="text-sm font-medium mb-2">Download Preview:</div>
-            <div className="text-xs text-muted-foreground">
-              Format: {downloadFormats.find((f) => f.value === selectedFormat)?.label}
-              <br />
-              Agents: {selectedAgents.length} of {Object.keys(job.results).length}
-              <br />
-              Metadata: {includeMetadata ? "Included" : "Excluded"}
-            </div>
-          </div>
-        </div>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDownload} disabled={isDownloading || selectedAgents.length === 0}>
-            {isDownloading ? "Downloading..." : "Download"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   )
 }

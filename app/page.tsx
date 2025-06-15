@@ -249,12 +249,13 @@ export default function Home() {
 
         {/* Main Dashboard */}
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="upload">Upload & Process</TabsTrigger>
             <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
             <TabsTrigger value="communication">Communication</TabsTrigger>
             <TabsTrigger value="results">Results</TabsTrigger>
+            <TabsTrigger value="downloads">Downloads</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard">
@@ -278,6 +279,9 @@ export default function Home() {
               <ResultsViewer jobs={jobs.filter((j) => j.status === "completed")} />
               <DownloadManager jobs={jobs} />
             </div>
+          </TabsContent>
+          <TabsContent value="downloads">
+            <DownloadManager jobs={jobs} />
           </TabsContent>
         </Tabs>
       </div>
