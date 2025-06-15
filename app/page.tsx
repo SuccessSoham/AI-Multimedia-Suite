@@ -27,6 +27,8 @@ export interface ProcessingJob {
   progress: number
   agents: string[]
   results: Record<string, any>
+  fileData?: string // Add base64 encoded file data
+  fileSize?: number
 }
 
 export interface CommunicationMessage {
@@ -108,6 +110,13 @@ export default function Home() {
   }
 
   const startProcessing = async (file: File) => {
+    // Convert file to base64 for storage
+    const fileData = await new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (e) => resolve(e.target?.result as string)
+      reader.readAsDataURL(file)
+    })
+
     const job: ProcessingJob = {
       id: Math.random().toString(36).substr(2, 9),
       fileName: file.name,
@@ -116,8 +125,11 @@ export default function Home() {
       progress: 0,
       agents: ["video-agent", "audio-agent", "storyboard-agent", "metadata-agent"],
       results: {},
+      fileData: fileData, // Store the actual file data
+      fileSize: file.size,
     }
 
+    // Rest of the function remains the same...
     setJobs((prev) => [job, ...prev])
     setIsProcessing(true)
 
