@@ -5,8 +5,10 @@ IF NOT EXISTS (
 BEGIN
     CREATE DATABASE ai_multimedia_suite;
 END
+GO
 
 USE ai_multimedia_suite;
+GO
 
 -- Example: Create a minimal table to verify setup
 CREATE TABLE IF NOT EXISTS system_config (
@@ -15,3 +17,4 @@ CREATE TABLE IF NOT EXISTS system_config (
     description NVARCHAR(MAX),
     updated_at DATETIME DEFAULT GETDATE()
 );
+GO
