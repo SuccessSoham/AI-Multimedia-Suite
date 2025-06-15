@@ -7,6 +7,7 @@ import { FileUploader } from "@/components/file-uploader"
 import { ProcessingPipeline } from "@/components/processing-pipeline"
 import { CommunicationLog } from "@/components/communication-log"
 import { ResultsViewer } from "@/components/results-viewer"
+import { DownloadManager } from "@/components/download-manager"
 
 export interface Agent {
   id: string
@@ -273,7 +274,10 @@ export default function Home() {
           </TabsContent>
 
           <TabsContent value="results">
-            <ResultsViewer jobs={jobs.filter((j) => j.status === "completed")} />
+            <div className="space-y-6">
+              <ResultsViewer jobs={jobs.filter((j) => j.status === "completed")} />
+              <DownloadManager jobs={jobs} />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
