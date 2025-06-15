@@ -8,6 +8,7 @@ import { ProcessingPipeline } from "@/components/processing-pipeline"
 import { CommunicationLog } from "@/components/communication-log"
 import { ResultsViewer } from "@/components/results-viewer"
 import { DownloadManager } from "@/components/download-manager"
+import { AgentOrchestrator } from "@/orchestrator/agent_orchestrator"
 
 export interface Agent {
   id: string
@@ -123,15 +124,17 @@ export default function Home() {
       fileType: file.type,
       status: "queued",
       progress: 0,
-      agents: ["video-agent", "audio-agent", "storyboard-agent", "metadata-agent"],
+      agents: ["metadata-agent", "video-agent", "audio-agent", "storyboard-agent"],
       results: {},
-      fileData: fileData, // Store the actual file data
+      fileData: fileData,
       fileSize: file.size,
     }
 
-    // Rest of the function remains the same...
     setJobs((prev) => [job, ...prev])
     setIsProcessing(true)
+
+    // Initialize your orchestrator
+    const orchestrator = new AgentOrchestrator()
 
     // Simulate orchestrator starting the pipeline
     addCommunicationMessage("orchestrator", "all-agents", "notification", {
@@ -140,60 +143,62 @@ export default function Home() {
       fileName: file.name,
     })
 
-    // Simulate agent processing
-    const agentProcessingOrder = ["metadata-agent", "video-agent", "audio-agent", "storyboard-agent"]
+    try {
+      // Create a temporary file path for processing (in real implementation, you'd save the file)
+      const tempFilePath = `temp/${file.name}`
 
-    for (let i = 0; i < agentProcessingOrder.length; i++) {
-      const agentId = agentProcessingOrder[i]
-      const agent = agents.find((a) => a.id === agentId)
+      // Start processing with your orchestrator
+      const orchestratorJobId = await orchestrator.process_file(tempFilePath, file.type)
 
-      if (!agent) continue
+      // Get the processing results from your orchestrator
+      const orchestratorJob = orchestrator.jobs[orchestratorJobId]
 
-      // Start processing
-      updateAgentStatus(agentId, "processing", 0, `Processing ${file.name}`)
-      addCommunicationMessage("orchestrator", agentId, "request", {
-        action: "process",
-        jobId: job.id,
-        fileName: file.name,
-        dependencies: i > 0 ? [agentProcessingOrder[i - 1]] : [],
-      })
-
-      // Simulate processing time
-      for (let progress = 0; progress <= 100; progress += 10) {
-        await new Promise((resolve) => setTimeout(resolve, 200))
-        updateAgentStatus(agentId, "processing", progress, `Processing ${file.name} - ${progress}%`)
-
-        // Update job progress
-        setJobs((prev) =>
-          prev.map((j) =>
-            j.id === job.id ? { ...j, progress: (i * 100 + progress) / agentProcessingOrder.length } : j,
-          ),
-        )
-      }
-
-      // Complete processing
-      updateAgentStatus(agentId, "completed", 100, `Completed processing ${file.name}`)
-      addCommunicationMessage(agentId, "orchestrator", "response", {
-        action: "process_complete",
-        jobId: job.id,
-        results: generateMockResults(agent.type),
-      })
-
-      // Update job results
+      // Update the job with real results from your agents
       setJobs((prev) =>
         prev.map((j) =>
-          j.id === job.id ? { ...j, results: { ...j.results, [agentId]: generateMockResults(agent.type) } } : j,
+          j.id === job.id
+            ? {
+                ...j,
+                status: "completed",
+                progress: 100,
+                results: orchestratorJob.results,
+              }
+            : j,
         ),
       )
+
+      // Add completion message
+      addCommunicationMessage("orchestrator", "all-agents", "notification", {
+        action: "pipeline_complete",
+        jobId: job.id,
+        results: orchestratorJob.results,
+      })
+
+      // Update agent statuses to completed
+      setAgents((prev) =>
+        prev.map((agent) => ({
+          ...agent,
+          status: "completed" as const,
+          progress: 100,
+          lastMessage: `Completed processing ${file.name}`,
+        })),
+      )
+    } catch (error) {
+      console.error("Processing failed:", error)
+
+      // Update job status to error
+      setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "error", progress: 0 } : j)))
+
+      // Update agent statuses to error
+      setAgents((prev) =>
+        prev.map((agent) => ({
+          ...agent,
+          status: "error" as const,
+          progress: 0,
+          lastMessage: `Error processing ${file.name}`,
+        })),
+      )
     }
-
-    // Complete job
-    setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "completed", progress: 100 } : j)))
-
-    addCommunicationMessage("orchestrator", "all-agents", "notification", {
-      action: "pipeline_complete",
-      jobId: job.id,
-    })
 
     setIsProcessing(false)
 
@@ -207,45 +212,7 @@ export default function Home() {
           lastMessage: "Ready for next task",
         })),
       )
-    }, 2000)
-  }
-
-  const generateMockResults = (agentType: string) => {
-    switch (agentType) {
-      case "video":
-        return {
-          resolution: "4K Enhanced",
-          noiseReduction: "85% improvement",
-          colorCorrection: "Applied",
-          scenes: 12,
-          enhancedFrames: 1440,
-        }
-      case "audio":
-        return {
-          noiseReduction: "92% improvement",
-          audioQuality: "Enhanced to 48kHz",
-          speechToText: "Transcription complete",
-          musicGenerated: "Background score added",
-        }
-      case "storyboard":
-        return {
-          keyFrames: 24,
-          scenes: 12,
-          transitions: 11,
-          composition: "Analyzed",
-          timeline: "Generated",
-        }
-      case "metadata":
-        return {
-          tags: ["action", "outdoor", "daylight", "people"],
-          objects: 15,
-          text: "OCR extracted",
-          sentiment: "Positive",
-          duration: "2:34",
-        }
-      default:
-        return {}
-    }
+    }, 3000)
   }
 
   return (

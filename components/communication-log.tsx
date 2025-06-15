@@ -1,93 +1,82 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import type React from "react"
+import { ArrowRight } from "lucide-react"
+
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { ArrowRight, MessageSquare, Bell, RefreshCw } from "lucide-react"
-import type { CommunicationMessage } from "@/app/page"
+
+interface CommunicationLogMessage {
+  type: string
+  protocol: string
+  from: string
+  to: string
+  payload: any
+  timestamp: Date
+}
 
 interface CommunicationLogProps {
-  messages: CommunicationMessage[]
+  messages: CommunicationLogMessage[]
 }
 
-export function CommunicationLog({ messages }: CommunicationLogProps) {
-  const getMessageIcon = (type: CommunicationMessage["type"]) => {
-    switch (type) {
-      case "request":
-        return <MessageSquare className="h-4 w-4" />
-      case "response":
-        return <RefreshCw className="h-4 w-4" />
-      case "notification":
-        return <Bell className="h-4 w-4" />
-    }
+const formatPayload = (payload: any) => {
+  if (typeof payload === "object") {
+    return JSON.stringify(payload, null, 2)
   }
+  return String(payload)
+}
 
-  const getMessageColor = (type: CommunicationMessage["type"]) => {
-    switch (type) {
-      case "request":
-        return "default"
-      case "response":
-        return "secondary"
-      case "notification":
-        return "outline"
-    }
+const getProtocolColor = (protocol: string) => {
+  switch (protocol) {
+    case "A2A":
+      return "bg-blue-100 text-blue-800"
+    case "gRPC":
+      return "bg-green-100 text-green-800"
+    case "REST":
+      return "bg-purple-100 text-purple-800"
+    default:
+      return "bg-gray-100 text-gray-800"
   }
+}
 
-  const getProtocolColor = (protocol: CommunicationMessage["protocol"]) => {
-    switch (protocol) {
-      case "A2A":
-        return "bg-blue-100 text-blue-800"
-      case "gRPC":
-        return "bg-green-100 text-green-800"
-      case "REST":
-        return "bg-purple-100 text-purple-800"
-    }
+const getMessageTypeColor = (type: string) => {
+  switch (type) {
+    case "request":
+      return "bg-yellow-100 text-yellow-800"
+    case "response":
+      return "bg-green-100 text-green-800"
+    default:
+      return "bg-gray-100 text-gray-800"
   }
+}
 
+const CommunicationLog: React.FC<CommunicationLogProps> = ({ messages }) => {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Agent Communication Log</CardTitle>
-        <CardDescription>
-          Real-time communication between agents using A2A protocol and other messaging systems
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[600px] w-full">
-          {messages.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">
-              No communication messages yet. Start processing a file to see agent interactions.
+    <div>
+      {messages.map((message, index) => (
+        <div key={index} className="mb-4 border rounded p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-1">
+                <Badge variant="outline" className={getMessageTypeColor(message.type)}>
+                  {message.type.toUpperCase()}
+                </Badge>
+                <Badge variant="outline" className={getProtocolColor(message.protocol)}>
+                  {message.protocol}
+                </Badge>
+                <span className="text-xs text-muted-foreground">{message.timestamp.toLocaleTimeString()}</span>
+              </div>
+              <div className="text-sm">
+                <span className="font-medium">{message.from}</span>
+                <ArrowRight className="h-3 w-3 mx-2 inline" />
+                <span className="font-medium">{message.to}</span>
+              </div>
+              <div className="mt-2 p-2 bg-muted rounded text-xs">
+                <pre className="whitespace-pre-wrap">{formatPayload(message.payload)}</pre>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {messages.map((message) => (
-                <div key={message.id} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Badge variant={getMessageColor(message.type)} className="flex items-center gap-1">
-                        {getMessageIcon(message.type)}
-                        {message.type}
-                      </Badge>
-                      <Badge className={`text-xs ${getProtocolColor(message.protocol)}`}>{message.protocol}</Badge>
-                    </div>
-                    <span className="text-xs text-slate-500">{message.timestamp.toLocaleTimeString()}</span>
-                  </div>
-
-                  <div className="flex items-center space-x-2 text-sm">
-                    <span className="font-medium bg-slate-100 px-2 py-1 rounded">{message.from}</span>
-                    <ArrowRight className="h-4 w-4 text-slate-400" />
-                    <span className="font-medium bg-slate-100 px-2 py-1 rounded">{message.to}</span>
-                  </div>
-
-                  <div className="bg-slate-50 rounded p-3">
-                    <pre className="text-xs text-slate-700 whitespace-pre-wrap">
-                      {JSON.stringify(message.payload, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </CardContent>
-    </Card>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
+
+export default CommunicationLog

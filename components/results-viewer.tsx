@@ -16,9 +16,27 @@ export function ResultsViewer({ jobs }: ResultsViewerProps) {
     return (
       <div className="space-y-3">
         {Object.entries(results).map(([key, value]) => (
-          <div key={key} className="flex justify-between items-center p-2 bg-slate-50 rounded">
-            <span className="text-sm font-medium capitalize">{key.replace(/([A-Z])/g, " $1")}</span>
-            <span className="text-sm text-slate-600">{String(value)}</span>
+          <div key={key} className="flex justify-between items-start p-3 bg-slate-50 rounded">
+            <span className="text-sm font-medium capitalize flex-shrink-0 mr-4">
+              {key.replace(/([A-Z])/g, " $1").replace(/_/g, " ")}
+            </span>
+            <div className="text-sm text-slate-600 text-right">
+              {key === "llm_summary" ? (
+                <div className="max-w-md">
+                  <pre className="whitespace-pre-wrap text-xs">{String(value)}</pre>
+                </div>
+              ) : Array.isArray(value) ? (
+                <div className="flex flex-wrap gap-1">
+                  {value.map((item, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {String(item)}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <span>{String(value)}</span>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -30,7 +48,7 @@ export function ResultsViewer({ jobs }: ResultsViewerProps) {
       "video-agent": "Video Enhancement",
       "audio-agent": "Audio Optimization",
       "storyboard-agent": "Storyboard Generation",
-      "metadata-agent": "Metadata Extraction",
+      "metadata-agent": "Metadata Extraction (LLM-Enhanced)",
     }
     return names[agentId] || agentId
   }
