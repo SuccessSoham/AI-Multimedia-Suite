@@ -16,23 +16,26 @@ class VideoAgent:
         try:
             clip = VideoFileClip(self.file_path)
 
-            # Apply basic enhancements
             enhanced = (
-                clip.fx(vfx.colorx, 1.2)      # Slight color boost
-                    .fx(vfx.lum_contrast, 0, 20, 128)  # Contrast enhancement
-                    .resize(height=1080)       # Resize to 1080p
+                clip.fx(vfx.colorx, 1.2)
+                    .fx(vfx.lum_contrast, 0, 20, 128)
+                    .resize(height=720)
             )
 
+            os.makedirs("outputs", exist_ok=True)
             enhanced.write_videofile(
                 self.output_path,
                 codec="libx264",
                 audio_codec="aac",
                 preset="medium",
                 threads=4,
-                fps=clip.fps,
+                ffmpeg_params=["-movflags", "+faststart"],
                 verbose=False,
                 logger=None
             )
+
+            if not os.path.exists(self.output_path) or os.path.getsize(self.output_path) < 1_000_000:
+                return {"error": "Video output file not saved correctly."}
 
             return {
                 "output_video": self.output_path,
@@ -42,4 +45,4 @@ class VideoAgent:
             }
 
         except Exception as e:
-            return {"error": f"Video processing failed: {e}"}
+            return {"error": f"VideoAgent failed: {str(e)}"}
