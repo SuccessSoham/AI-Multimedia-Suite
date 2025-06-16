@@ -12,7 +12,7 @@ class AgentOrchestrator:
         self.jobs: Dict[str, Dict[str, Any]] = {}
         self.messages: List[A2AMessage] = []
 
-    async def process_file(self, file_path: str, file_type: str):
+    async def process_file(self, file_path: str, file_type: str) -> str:
         job_id = str(uuid.uuid4())
         self.jobs[job_id] = {
             "id": job_id,
@@ -28,10 +28,16 @@ class AgentOrchestrator:
         for agent_id in self.registry.list_agents():
             AgentClass = self.registry.get_agent_class(agent_id)
             if not AgentClass:
+                print(f"[!] Agent class not found for {agent_id}")
                 continue
 
-            agent = AgentClass(job_id=job_id, file_path=file_path, file_type=file_type if agent_id == "metadata-agent" else None)
+            # Instantiate agent with appropriate args
+            if agent_id == "metadata-agent":
+                agent = AgentClass(job_id=job_id, file_path=file_path, file_type=file_type)
+            else:
+                agent = AgentClass(job_id=job_id, file_path=file_path)
 
+            # Send request message
             request = A2AMessage(
                 from_agent="orchestrator",
                 to_agent=agent_id,
@@ -40,9 +46,11 @@ class AgentOrchestrator:
             )
             await self.send_message(request)
 
+            # Run agent and collect result
             result = await agent.process()
             self.jobs[job_id]["results"][agent_id] = result
 
+            # Send response message
             response = A2AMessage(
                 from_agent=agent_id,
                 to_agent="orchestrator",
