@@ -1,3 +1,5 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,9 +16,27 @@ export function ResultsViewer({ jobs }: ResultsViewerProps) {
     return (
       <div className="space-y-3">
         {Object.entries(results).map(([key, value]) => (
-          <div key={key} className="flex justify-between items-center p-2 bg-slate-50 rounded">
-            <span className="text-sm font-medium capitalize">{key.replace(/([A-Z])/g, " $1")}</span>
-            <span className="text-sm text-slate-600">{String(value)}</span>
+          <div key={key} className="flex justify-between items-start p-3 bg-slate-50 rounded">
+            <span className="text-sm font-medium capitalize flex-shrink-0 mr-4">
+              {key.replace(/([A-Z])/g, " $1").replace(/_/g, " ")}
+            </span>
+            <div className="text-sm text-slate-600 text-right">
+              {key === "llm_summary" ? (
+                <div className="max-w-md">
+                  <pre className="whitespace-pre-wrap text-xs">{String(value)}</pre>
+                </div>
+              ) : Array.isArray(value) ? (
+                <div className="flex flex-wrap gap-1">
+                  {value.map((item, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {String(item)}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <span>{String(value)}</span>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -28,7 +48,7 @@ export function ResultsViewer({ jobs }: ResultsViewerProps) {
       "video-agent": "Video Enhancement",
       "audio-agent": "Audio Optimization",
       "storyboard-agent": "Storyboard Generation",
-      "metadata-agent": "Metadata Extraction",
+      "metadata-agent": "Metadata Extraction (LLM-Enhanced)",
     }
     return names[agentId] || agentId
   }
@@ -41,6 +61,101 @@ export function ResultsViewer({ jobs }: ResultsViewerProps) {
       "metadata-agent": "bg-blue-100 text-blue-800",
     }
     return colors[agentId] || "bg-slate-100 text-slate-800"
+  }
+
+  // Add these functions before the return statement:
+  const handlePreview = (job: ProcessingJob) => {
+    // Create a preview window with job results
+    const previewWindow = window.open("", "_blank", "width=800,height=600")
+    if (previewWindow) {
+      previewWindow.document.write(`
+      <html>
+        <head>
+          <title>Preview: ${job.fileName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .result-section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+            .result-title { font-weight: bold; color: #333; margin-bottom: 10px; }
+            .result-data { background: #f5f5f5; padding: 10px; border-radius: 3px; }
+          </style>
+        </head>
+        <body>
+          <h1>Processing Results: ${job.fileName}</h1>
+          <p><strong>Job ID:</strong> ${job.id}</p>
+          <p><strong>Status:</strong> ${job.status}</p>
+          <p><strong>Progress:</strong> ${job.progress}%</p>
+          ${Object.entries(job.results)
+            .map(
+              ([agentId, results]) => `
+            <div class="result-section">
+              <div class="result-title">${getAgentName(agentId)} Results</div>
+              <div class="result-data">
+                <pre>${JSON.stringify(results, null, 2)}</pre>
+              </div>
+            </div>
+          `,
+            )
+            .join("")}
+        </body>
+      </html>
+    `)
+      previewWindow.document.close()
+    }
+  }
+
+  const handleDownload = (job: ProcessingJob, format = "json") => {
+    let content: string
+    let filename: string
+    let mimeType: string
+
+    switch (format) {
+      case "json":
+        content = JSON.stringify(
+          {
+            job: {
+              id: job.id,
+              fileName: job.fileName,
+              status: job.status,
+              progress: job.progress,
+            },
+            results: job.results,
+            metadata: {
+              downloadedAt: new Date().toISOString(),
+              format: "JSON",
+            },
+          },
+          null,
+          2,
+        )
+        filename = `${job.fileName.split(".")[0]}_results.json`
+        mimeType = "application/json"
+        break
+      case "csv":
+        let csv = "Agent,Metric,Value\n"
+        Object.entries(job.results).forEach(([agentId, results]) => {
+          Object.entries(results).forEach(([key, value]) => {
+            csv += `${getAgentName(agentId)},${key},${value}\n`
+          })
+        })
+        content = csv
+        filename = `${job.fileName.split(".")[0]}_results.csv`
+        mimeType = "text/csv"
+        break
+      default:
+        content = JSON.stringify(job.results, null, 2)
+        filename = `${job.fileName.split(".")[0]}_results.json`
+        mimeType = "application/json"
+    }
+
+    const blob = new Blob([content], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -62,14 +177,19 @@ export function ResultsViewer({ jobs }: ResultsViewerProps) {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg">{job.fileName}</CardTitle>
+                      {/* Replace the download button section in the CardHeader with: */}
                       <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => handlePreview(job)}>
                           <Eye className="h-4 w-4 mr-2" />
                           Preview
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => handleDownload(job, "json")}>
                           <Download className="h-4 w-4 mr-2" />
-                          Download
+                          Download JSON
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDownload(job, "csv")}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download CSV
                         </Button>
                       </div>
                     </div>

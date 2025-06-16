@@ -66,6 +66,9 @@ export function AgentDashboard({ agents }: AgentDashboardProps) {
                 {agent.capabilities.map((capability) => (
                   <Badge key={capability} variant="outline" className="text-xs">
                     {capability}
+                    {agent.id === "metadata-agent" && capability === "Content Analysis" && (
+                      <span className="ml-1 text-blue-500">🤖</span>
+                    )}
                   </Badge>
                 ))}
               </div>
