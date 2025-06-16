@@ -1,9 +1,12 @@
-from typing import Dict
-from agents import VideoAgent, AudioAgent, MetadataAgent, StoryboardAgent
+from typing import Dict, Type
+from agents.video_agent import VideoAgent
+from agents.audio_agent import AudioAgent
+from agents.metadata_agent import MetadataAgent
+from agents.storyboard_agent import StoryboardAgent
 
 class AgentRegistry:
     def __init__(self):
-        self.registry: Dict[str, type] = {
+        self.registry: Dict[str, Type] = {
             "video-agent": VideoAgent,
             "audio-agent": AudioAgent,
             "metadata-agent": MetadataAgent,

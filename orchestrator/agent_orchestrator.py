@@ -6,6 +6,8 @@ from typing import Dict, Any, List
 from orchestrator.agent_registry import AgentRegistry
 from orchestrator.message import A2AMessage, MessageType
 from lib.validate_outputs import validate_agent_output
+from agents.storyboard_agent import StoryboardAgent
+
 
 class AgentOrchestrator:
     def __init__(self):
