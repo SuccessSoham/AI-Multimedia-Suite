@@ -1,74 +1,116 @@
-import type React from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-
-const getPipelineSteps = () => {
-  return [
-    { id: "upload", name: "File Upload", status: "completed" },
-    { id: "orchestrator", name: "Orchestrator Init", status: "completed" },
-    { id: "metadata-agent", name: "Metadata Extraction (LLM)", status: "processing" },
-    { id: "video-agent", name: "Video Enhancement", status: "queued" },
-    { id: "audio-agent", name: "Audio Optimization", status: "queued" },
-    { id: "storyboard-agent", name: "Storyboard Generation", status: "queued" },
-    { id: "completion", name: "Results Compilation", status: "queued" },
-  ]
-}
+import { Progress } from "@/components/ui/progress"
+import { CheckCircle, Clock, AlertCircle, Play } from "lucide-react"
+import type { ProcessingJob, Agent } from "@/app/page"
 
 interface ProcessingPipelineProps {
-  jobs: any[]
+  jobs: ProcessingJob[]
+  agents: Agent[]
 }
 
-const ProcessingPipeline: React.FC<ProcessingPipelineProps> = ({ jobs }) => {
-  const pipelineSteps = getPipelineSteps()
+export function ProcessingPipeline({ jobs, agents }: ProcessingPipelineProps) {
+  const getStatusIcon = (status: ProcessingJob["status"]) => {
+    switch (status) {
+      case "queued":
+        return <Clock className="h-4 w-4" />
+      case "processing":
+        return <Play className="h-4 w-4" />
+      case "completed":
+        return <CheckCircle className="h-4 w-4" />
+      case "error":
+        return <AlertCircle className="h-4 w-4" />
+    }
+  }
+
+  const getStatusColor = (status: ProcessingJob["status"]) => {
+    switch (status) {
+      case "queued":
+        return "secondary"
+      case "processing":
+        return "default"
+      case "completed":
+        return "default"
+      case "error":
+        return "destructive"
+    }
+  }
 
   return (
-    <div>
-      <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-        <h3 className="font-semibold text-blue-900 mb-2">Agent Orchestrator Status</h3>
-        <div className="flex items-center space-x-2">
-          <Badge variant="outline" className="bg-blue-100 text-blue-800">
-            A2A Protocol Active
-          </Badge>
-          <Badge variant="outline" className="bg-green-100 text-green-800">
-            {jobs.filter((j) => j.status === "processing").length} Jobs Processing
-          </Badge>
-          <Badge variant="outline" className="bg-purple-100 text-purple-800">
-            LLM Integration Enabled
-          </Badge>
-        </div>
-      </div>
-      <div className="flex flex-col md:flex-row justify-between items-center mb-4">
-        {pipelineSteps.map((step, index) => (
-          <div key={step.id} className="flex flex-col items-center">
-            <div
-              className={`w-24 h-24 rounded-full flex items-center justify-center mb-2 ${
-                step.status === "completed"
-                  ? "bg-green-200 text-green-800"
-                  : step.status === "processing"
-                    ? "bg-yellow-200 text-yellow-800 animate-pulse"
-                    : "bg-gray-200 text-gray-600"
-              }`}
-            >
-              {step.name.substring(0, 3)}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Processing Pipeline</CardTitle>
+          <CardDescription>Monitor the progress of your multimedia processing jobs</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {jobs.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">No processing jobs yet. Upload a file to get started.</div>
+          ) : (
+            <div className="space-y-4">
+              {jobs.map((job) => (
+                <Card key={job.id} className="border-l-4 border-l-blue-500">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{job.fileName}</CardTitle>
+                      <Badge variant={getStatusColor(job.status)} className="flex items-center gap-1">
+                        {getStatusIcon(job.status)}
+                        {job.status}
+                      </Badge>
+                    </div>
+                    <CardDescription>Job ID: {job.id}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Overall Progress</span>
+                        <span>{Math.round(job.progress)}%</span>
+                      </div>
+                      <Progress value={job.progress} className="h-2" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      {job.agents.map((agentId) => {
+                        const agent = agents.find((a) => a.id === agentId)
+                        if (!agent) return null
+
+                        return (
+                          <div key={agentId} className="p-3 bg-slate-50 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium">{agent.name.split(" ")[0]}</span>
+                              <Badge variant="outline" size="sm">
+                                {agent.status}
+                              </Badge>
+                            </div>
+                            {agent.status === "processing" && <Progress value={agent.progress} className="h-1" />}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {Object.keys(job.results).length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium">Results Summary</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                          {Object.entries(job.results).map(([agentId, results]) => {
+                            const agent = agents.find((a) => a.id === agentId)
+                            return (
+                              <div key={agentId} className="p-2 bg-green-50 rounded">
+                                <span className="font-medium">{agent?.name.split(" ")[0]}:</span>
+                                <span className="ml-1">{Object.keys(results).length} metrics processed</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <div className="text-sm">{step.name}</div>
-            {index < pipelineSteps.length - 1 && (
-              <div className="md:mx-4 my-2 md:my-0">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
-
-export default ProcessingPipeline
