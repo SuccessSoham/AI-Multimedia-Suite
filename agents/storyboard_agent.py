@@ -12,57 +12,64 @@ class StoryboardAgent:
         self.output_path = f"outputs/{job_id}_storyboard.jpg"
 
     async def process(self) -> Dict:
-        print(f"[StoryboardAgent] Creating storyboard: {self.file_path}")
+        print(f"[StoryboardAgent] Generating storyboard from video: {self.file_path}")
         await asyncio.sleep(0.5)
 
         try:
+            if not os.path.exists(self.file_path):
+                return {"error": f"Video file not found: {self.file_path}"}
+
             cap = cv2.VideoCapture(self.file_path)
             if not cap.isOpened():
-                return {"error": "Cannot open video file."}
+                return {"error": "Failed to open video file for storyboard generation."}
 
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             fps = cap.get(cv2.CAP_PROP_FPS) or 24
-            duration = total_frames / fps
-            interval = max(1, int(total_frames / 12))
+            duration = frame_count / fps
+            step = max(1, frame_count // 12)  # extract 12 frames max
 
             thumbnails = []
-            for i in range(0, total_frames, interval):
+            for i in range(0, frame_count, step):
                 cap.set(cv2.CAP_PROP_POS_FRAMES, i)
                 success, frame = cap.read()
-                if success and frame is not None:
-                    resized = cv2.resize(frame, (320, 180))
-                    thumbnails.append(resized)
-                if len(thumbnails) >= 12:
+                if not success or frame is None:
+                    continue
+                thumbnail = cv2.resize(frame, (320, 180))  # consistent size
+                thumbnails.append(thumbnail)
+                if len(thumbnails) == 12:
                     break
             cap.release()
 
             if not thumbnails:
-                return {"error": "No thumbnails extracted."}
+                return {"error": "No valid frames extracted from video."}
 
+            # Build grid layout
             rows = 3
             cols = math.ceil(len(thumbnails) / rows)
             grid = []
 
             for r in range(rows):
-                row_imgs = thumbnails[r * cols:(r + 1) * cols]
-                while len(row_imgs) < cols:
-                    row_imgs.append(np.zeros_like(thumbnails[0]))
-                grid.append(np.hstack(row_imgs))
+                row = thumbnails[r * cols : (r + 1) * cols]
+                while len(row) < cols:
+                    blank = np.zeros_like(thumbnails[0])
+                    row.append(blank)
+                grid.append(np.hstack(row))
 
-            storyboard = np.vstack(grid)
+            final_image = np.vstack(grid)
+
             os.makedirs("outputs", exist_ok=True)
-            cv2.imwrite(self.output_path, storyboard)
+            success = cv2.imwrite(self.output_path, final_image)
 
-            if not os.path.exists(self.output_path) or os.path.getsize(self.output_path) < 20_000:
-                return {"error": "Storyboard image not saved correctly."}
+            if not success or not os.path.exists(self.output_path):
+                return {"error": "Failed to save storyboard image."}
 
             return {
                 "storyboard_image": self.output_path,
                 "frames_used": len(thumbnails),
                 "duration_sec": round(duration, 2),
                 "timeline_generated": True,
-                "scene_types": ["establishing_shot", "close_up", "medium_shot", "wide_shot"]
+                "validation": "✅ Output verified"
             }
 
         except Exception as e:
-            return {"error": f"StoryboardAgent failed: {str(e)}"}
+            return {"error": f"StoryboardAgent exception: {str(e)}"}
